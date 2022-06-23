@@ -1,0 +1,95 @@
+#format: sh
+#
+#  Configuration for qtlinteractionload
+#
+#  This file sets up environment variables that are needed for a 
+#  QTL to QTL Interaction Relationship Load
+#
+###########################################################################
+
+#
+#  If the MGICONFIG environment variable does not have a local override,
+#  use the default "live" settings.
+#
+if [ "${MGICONFIG}" = "" ]
+then
+    MGICONFIG=/usr/local/mgi/live/mgiconfig
+    export MGICONFIG
+fi
+
+CONFIG_MASTER=${MGICONFIG}/master.config.sh
+
+export CONFIG_MASTER
+
+. ${CONFIG_MASTER}
+
+# Full path the the logs, reports, and archive directories 
+FILEDIR=${DATALOADSOUTPUT}/mgi/qtlinteractionload
+
+# Full path to the input, output, logs, reports and archive directories.
+INPUTDIR=${FILEDIR}/input
+LOGDIR=${FILEDIR}/logs
+RPTDIR=${FILEDIR}/reports
+OUTPUTDIR=${FILEDIR}/output
+ARCHIVEDIR=${FILEDIR}/archive
+
+export FILEDIR INPUTDIR LOGDIR RPTDIR OUTPUTDIR ARCHIVEDIR
+
+# Full path name of the published input file
+INPUT_FILE_DEFAULT="${INPUTDIR}/qtlinteractionload.txt"
+
+# Full path to the "cleaned up" load ready file
+INPUT_FILE_QC=${OUTPUTDIR}/qtlinteractionload_qc.txt
+
+export INPUT_FILE_DEFAULT INPUT_FILE_QC
+
+# Full path to QC script
+#
+LOAD_QC_SH=${CURATORALLELELOAD}/bin/qtlIntQC.sh
+
+export LOAD_QC_SH
+
+#
+# Full path to the QC report
+#
+QC_RPT=${RPTDIR}/qc.rpt
+QC_LOGFILE=${LOGDIR}/qtlinteractionQC.log
+
+export QC_RPT QC_LOGFILE
+
+#  Full path name of the log files
+LOG_PROC=${LOGDIR}/qtlinteractionload.proc.log
+LOG_DIAG=${LOGDIR}/qtlinteractionload.diag.log
+LOG_CUR=${LOGDIR}/qtlinteractionload.cur.log
+LOG_VAL=${LOGDIR}/qtlinteractionload.val.log
+
+export LOG_PROC LOG_DIAG LOG_CUR LOG_VAL
+
+# Send debug messages to the diagnostic log (true or false)
+#  And don't execute BCP
+LOG_DEBUG=false
+
+export LOG_DEBUG
+
+###########################################################################
+#
+#  MISCELLANEOUS SETTINGS
+#
+###########################################################################
+
+#  The name of the load for the subject of an email notification
+MAIL_LOADNAME="QTL to QTL Interaction Relationship Load"
+
+# this load's login value for jobstream
+JOBSTREAM=qtlinteractionload
+
+#  Recipient list for mailing the log files (comma-separated)
+MAIL_LOG_PROC=""
+
+export MAIL_LOADNAME JOBSTREAM MAIL_LOG_PROC
+
+#  INSTALLDIR expected by dlautils/DLAInstall
+INSTALLDIR=${CURATORALLELELOAD}
+
+export INSTALLDIR
+
