@@ -169,27 +169,9 @@ then
     if [ ${LIVE_RUN} -eq 0 ]
     then
 	echo ""
-	echo "Warn and Skipped Relationships in QC. See ${QC_RPT} " | tee -a ${LOG}
+	echo "Errors in QC load will not run. See ${QC_RPT} " | tee -a ${LOG}
     fi
     RC=2
-elif [ `cat ${TMP_FILE}` -eq 3 ]
-then
-    if [ ${LIVE_RUN} -eq 0 ]
-    then
-        echo ""
-        echo "Skipped Relationships in QC. See ${QC_RPT} " | tee -a ${LOG}
-    fi
-    RC=3
-elif [ `cat ${TMP_FILE}` -eq 4 ]
-then
-    if [ ${LIVE_RUN} -eq 0 ]
-    then
-        echo ""
-        echo "Warn Relationships in QC. See ${QC_RPT} " | tee -a ${LOG}
-    fi
-    RC=4
-
-
 else
     if [ ${LIVE_RUN} -eq 0 ]
     then
