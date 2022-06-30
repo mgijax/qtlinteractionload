@@ -1,16 +1,34 @@
+#
+# qtlinteractionload.py
+###############################################################################
+#
 #  Purpose:
 #
 #      Load QTL to QTL Interaction relationships
 #
+# Usage:
+#       qtlinteractionload.py
+#
 #  Inputs:
 #
 #       File of relationships
+#
+#       1. QTL1 (organizer) MGI ID
+#       2. QTL1 (organizer) symbol
+#       3. QTL2 (participant) MGI ID
+#       4. QTL2 (participant) symbol
+#       5. Interaction type (term from the new qtl_qtl_interaction vocab)
+#       6. Reference (reference describing the interaction; should be a JNum)
+#       7+ For curator use only; ignored by the load
 #
 #  Outputs:
 #
 #	1 BCP file:
 #	A pipe-delimited file:
 #       	MGI_Relationship.bcp
+#
+#       Diagnostics file - for verification calls to loadlib and sourceloadlib
+#       Error file - for verification calls to loadlib and sourceloadlib
 #
 #  Exit Codes:
 #
@@ -42,28 +60,43 @@ import sys
 import os
 import string
 import db
-import mgi_utils
+import subprocess
 
+import mgi_utils
+import loadlib
 #db.setTrace()
 
 CRT = '\n'
 TAB = '\t'
 
 # from configuration file
-user = os.environ['MGD_DBUSER']
-passwordFileName = os.environ['MGD_DBPASSWORDFILE']
-outputDir = os.environ['OUTPUTDIR']
-reportDir = os.environ['RPTDIR']
-
 inputFileName = os.getenv('INPUT_FILE_DEFAULT')
+outputDir = os.environ['OUTPUTDIR']
+
+# if 'true',bcp files will not be bcp-ed into the database.
+# Default is 'false'
+DEBUG = os.getenv('LOG_DEBUG')
+
 bcpFile = 'MGI_Relationship.bcp'
 relationshipFileName = '%s/%s' % (outputDir, bcpFile)
 
-cdate  = mgi_utils.date("%m/%d/%Y")
-fpRelationship = ''
-fpInput = ''
+#
+# File descriptors
+#
+fpDiagFile = ''         # diagnostic file
+fpErrorFile = ''        # error file
+fpRelationshipFile = ''
+fpInputFile = ''
 
-# The category key 'qtl_to_candidate_gene'
+#
+# log file paths
+#
+head, tail = os.path.split(inputFileName)
+
+diagFileName = outputDir + '/' + tail + '.diagnostics'
+errorFileName = outputDir + '/' + tail + '.error'
+
+# The category key 'qtl_qtl_interaction'
 catKey = 1010
 
 # the qualifier key 'Not Specified'
@@ -72,11 +105,41 @@ qualKey = 11391898
 # the evidence key 'Not Specified'
 evidKey = 17396909
 
-# qtl candidate geneload user key
+# qtl interaction load user key
 userKey = 1632
 
 # database primary keys, will be set to the next available from the db
 nextRelationshipKey = 1000	# MGI_Relationship._Relationship_key
+
+cdate = loadlib.loaddate
+
+# Purpose: prints error 'message' if it is not None
+#     writes to log files and exits with 'status'
+# Returns: nothing
+# Assumes: Nothing
+# Effects: Exits with 'status'
+
+def exit(
+    status,          # numeric exit status (integer)
+    message = None   # exit message (str.
+    ):
+
+    if message is not None:
+        sys.stderr.write('\n' + str(message) + '\n')
+
+    try:
+        fpDiagFile.write('\n\nEnd Date/Time: %s\n' % (mgi_utils.date()))
+        fpErrorFile.write('\n\nEnd Date/Time: %s\n' % (mgi_utils.date()))
+        fpDiagFile.close()
+        fpErrorFile.close()
+        fpInputFile.close()
+    except:
+        pass
+
+    db.useOneConnection(0)
+    sys.exit(status)
+
+# end exit() -------------------------------
 
 #
 # Purpose: open files, create db connection, gets max keys from the db
@@ -84,7 +147,7 @@ nextRelationshipKey = 1000	# MGI_Relationship._Relationship_key
 # Assumes: Nothing
 # Effects: Sets global variables, exits if a file can't be opened,
 #
-def init():
+def initialize():
 
     global nextRelationshipKey
 
@@ -97,8 +160,14 @@ def init():
     # create database connection
     #
     db.useOneConnection(1)
-    db.set_sqlUser(user)
-    db.set_sqlPasswordFromFile(passwordFileName)
+
+    db.set_sqlLogFunction(db.sqlLogAll)
+
+    fpDiagFile.write('Start Date/Time: %s\n' % (mgi_utils.date()))
+    fpDiagFile.write('Server: %s\n' % (db.get_sqlServer()))
+    fpDiagFile.write('Database: %s\n' % (db.get_sqlDatabase()))
+
+    fpErrorFile.write('Start Date/Time: %s\n\n' % (mgi_utils.date()))
 
     #
     # get next MGI_Relationship key
@@ -111,7 +180,7 @@ def init():
 
     return 0
 
-# end init() -------------------------------
+# end initialize() -------------------------------
 
 # Purpose: Open input/output files.
 # Returns: exit 1 if cannot open input or output file
@@ -120,19 +189,30 @@ def init():
 #
 def openFiles ():
 
-    global fpRelationship, fpInput
+    global fpRelationshipFile, fpInputFile, fpDiagFile, fpErrorFile
 
     try:
-        fpInput = open(inputFileName, 'r')
+        fpInputFile = open(inputFileName, 'r')
     except:
         print(('Cannot open input file: %s' % inputFileName))
         sys.exit(1)
 
     try:
-        fpRelationship = open(relationshipFileName, 'w')
+        fpRelationshipFile = open(relationshipFileName, 'w')
     except:
         print(('Cannot open relationships bcp file: %s' % relationshipFileName))
         sys.exit(1)
+
+    try:
+        fpDiagFile = open(diagFileName, 'w')
+    except:
+        exit(1, 'Could not open file %s\n' % diagFileName)
+
+    try:
+        fpErrorFile = open(errorFileName, 'w')
+    except:
+        exit(1, 'Could not open file %s\n' % errorFileName)
+
 
     return 0
 
@@ -146,41 +226,48 @@ def openFiles ():
 #
 def closeFiles ():
 
-    global fpRelationship, fpInput
+    global fpRelationshipFile, fpInputFile
 
-    fpRelationship.close()
-    fpInput.close()
-
+    fpRelationshipFile.close()
+    fpInputFile.close()
+    
     return 0
 
 # end closeFiles() -------------------------------
 
 # Purpose: read input, resolve to keys, write to bcp file
-# Returns: None
-# Assumes: None
-# Effects: None
+# Returns: 1 if error,  else 0
+# Assumes: file descriptors have been initialized
+# Effects: 
 #
 
 def processRelationships():
-    header = fpInput.readline()
-    line = fpInput.readline()
+    global nextRelationshipKey
+
+    header = fpInputFile.readline()
+    line = fpInputFile.readline()
+    lineNum = 1
+
     while line:
-        print(line)
-        line = fpInput.readline()
+        lineNum += 1
+
+        # get columns 1-6, already qc'd we know there are at least 6 columns
+        (orgID, orgSym, partID, partSym, interactionType, jNum) = list(map(str.strip, str.split(line, TAB)))[:6]
+
+        orgKey = loadlib.verifyMarker(orgID, lineNum, fpErrorFile)
+        partKey =  loadlib.verifyMarker(partID, lineNum, fpErrorFile)
+        intKey = loadlib.verifyTerm('', 178, interactionType, lineNum, fpErrorFile)
+        refsKey = loadlib.verifyReference(jNum, lineNum, fpErrorFile)
+        fpRelationshipFile.write('%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s\n' % \
+            (nextRelationshipKey, catKey, orgKey, partKey, intKey, qualKey, evidKey, refsKey, userKey, userKey, cdate, cdate))
+
+        nextRelationshipKey += 1
+
+        line = fpInputFile.readline()
         
     return 0
 
 # end processRelationships ----------------------
-
-# Purpose: write QC report
-# Returns: None
-# Assumes: None
-# Effects: None
-#
-
-def writeReports():
-    # stub in case we end up needing it
-    return 0
 
 # Purpose: deletes existing relationships
 # Returns: None
@@ -188,6 +275,10 @@ def writeReports():
 # Effects: None
 #
 def doDeletes():
+
+    if DEBUG  == 'true':
+        return 0
+
     db.sql('''delete from MGI_Relationship where _CreatedBy_key = %s ''' % userKey, None)
     db.commit()
     db.useOneConnection(0)
@@ -203,16 +294,24 @@ def doDeletes():
 #
 def bcpFiles():
 
+    if DEBUG  == 'true':
+        return 0
+
     bcpCommand = os.environ['PG_DBUTILS'] + '/bin/bcpin.csh'
 
     bcpCmd = '%s %s %s %s %s %s "|" "\\n" mgd' % \
             (bcpCommand, db.get_sqlServer(), db.get_sqlDatabase(), 'MGI_Relationship', outputDir, bcpFile)
-    print(bcpCmd)
-    rc = os.system(bcpCmd)
+    fpDiagFile.write('%s\n' % bcpCmd)
+    result = subprocess.run(bcpCmd, shell=True, capture_output=True, text=True)
+    stdout = result.stdout
+    stderr = result.stderr
+    statusCode = result.returncode
 
-    if rc != 0:
-        closeFiles()
-        sys.exit(2)
+    if statusCode != 0:
+        msg = '%s statusCode: %s stderr: %s%s' % (bcpCmd, statusCode, stderr, CRT)
+        fpDiagFile.write(msg)
+        return statusCode
+
     # update mgi_relationship auto-sequence
     db.sql(''' select setval('mgi_relationship_seq', (select max(_Relationship_key) from MGI_Relationship)) ''', None)
 
@@ -225,21 +324,15 @@ def bcpFiles():
 #
 
 print('%s' % mgi_utils.date())
-print ('init()')
-if init() != 0:
-    exit(1, 'Error in  init \n' )
+print ('initialize()')
+if initialize() != 0:
+    exit(1, 'Error in  initialize \n' )
 
 print('%s' % mgi_utils.date())
 print('processRelationships()')
-# determine qtl candidate genes and write to bcp
+# process qtl interactions file, write to bcp
 if processRelationships() != 0:
     exit(1, 'Error in  processRelationships \n' )
-
-#print('%s' % mgi_utils.date())
-#print('writeReports()')
-## write out info for each bucket of relationships
-#if writeReports() != 0:
-#    exit(1, 'Error in  writeReports \n' )
 
 print('%s' % mgi_utils.date())
 print('doDeletes()')
@@ -259,6 +352,4 @@ print('bcpFiles()')
 if bcpFiles() != 0:
     exit(1, 'Error in  bcpFiles \n' )
 
-print('%s' % mgi_utils.date())
-print('done')
-sys.exit(0)
+exit(0, 'qtlinteractionload successful')
