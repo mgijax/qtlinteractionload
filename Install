@@ -125,7 +125,7 @@ if [ -d ${DEPLOY_PATH} ]; then
 	# deployment errors are non-fatal, as they can occur regularly in an
 	# SE's development area
 
-	for file in runAlleleQC publishAllele
+	for file in runQtlIntQC publishQtlInt
 	do
 		cp bin/${file} ${DEPLOY_PATH}
 		if [ $? -ne 0 ]; then
