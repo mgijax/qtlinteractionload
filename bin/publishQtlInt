@@ -22,6 +22,8 @@ usage ()
 CURRENT_DIR=`pwd`
 
 LOADDIR=/usr/local/mgi/live/dataload/qtlinteractionload
+#LOADDIR=/home/sc/work/dataload/qtlinteractionload
+
 CONFIG=${LOADDIR}/qtlinteractionload.config
 
 #

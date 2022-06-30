@@ -19,8 +19,8 @@ usage ()
     exit 1
 }
 
-#LOADDIR=/usr/local/mgi/live/dataload/qtlinteractionload
-LOADDIR=/home/sc/work/dataload/qtlinteractionload
+LOADDIR=/usr/local/mgi/live/dataload/qtlinteractionload
+#LOADDIR=/home/sc/work/dataload/qtlinteractionload
 
 WRAPPER=${LOADDIR}/bin/qtlIntQC.sh
 
