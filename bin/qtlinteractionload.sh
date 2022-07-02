@@ -80,6 +80,28 @@ then
     fi
 fi
 
+echo "" >> ${LOG_DIAG}
+date >> ${LOG_DIAG}
+echo "Run QC checks"  | tee -a ${LOG_DIAG}
+${QTLINTERACTIONLOAD}/bin/qtlIntQC.sh ${INPUT_FILE_DEFAULT} live
+STAT=$?
+if [ ${STAT} -eq 1 ]
+then
+    checkStatus ${STAT} "An error occurred while generating the QC reports - See ${QC_LOGFILE}. qtlIntQC.sh"
+
+    # run postload cleanup and email logs
+    shutDown
+fi
+
+if [ ${STAT} -eq 2 ]
+then
+    checkStatus ${STAT} "QC errors detected. The load will not run. See ${QC_RPT}. qtlIntQC.sh"
+
+    # run postload cleanup and email logs
+    shutDown
+
+fi
+
 #
 # run the load
 #
