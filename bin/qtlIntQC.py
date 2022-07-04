@@ -137,7 +137,6 @@ def checkArgs ():
         sys.exit(1)
 
     inputFile = sys.argv[1]
-    print('inputFile: %s' % inputFile)
     return 0
 
 # end checkArgs() -------------------------------
@@ -328,7 +327,6 @@ def writeReport():
         fpQcRpt.write(CRT + 'Total: %s' % len(badJnumList))
 
     if len(noReciprocalList):
-        #print(noReciprocalList)
         fpQcRpt.write(CRT + CRT + str.center('No Reciprocal for Organizer/Participant',60) + CRT)
         fpQcRpt.write('%-12s  %-20s%s' % ('Line#', 'Line', CRT))
         fpQcRpt.write(12*'-' + '  ' + 20*'-' + CRT)
@@ -376,7 +374,7 @@ def runQcChecks():
     lineNum = 1
     while line:
         lineNum += 1
-        print('lineNum: %s line: %s' % (lineNum, line))
+        #print('lineNum: %s line: %s' % (lineNum, line))
         if line not in distinctLineList:
             distinctLineList.append(line)
         else:
@@ -441,15 +439,12 @@ def runQcChecks():
     for pair in qtlPairDict:
         (org, part) =  str.split(pair, '|')
         reciprocal = '%s|%s' % (part, org)
-        print('reciprocal: %s ' % reciprocal)
         if reciprocal not in qtlPairDict:
-            print('reciprocal not found')
+            #print('reciprocal not found')
             pList = qtlPairDict[pair]
             for p in pList:
                 noReciprocalList.append(p)
             hasFatalErrors = 1
-        else:
-            print('reciprocal found')
     return 0
 
 # end runQcChecks() -------------------------------
