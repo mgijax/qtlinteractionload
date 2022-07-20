@@ -84,7 +84,7 @@ MAIL_LOADNAME="QTL to QTL Interaction Relationship Load"
 JOBSTREAM=qtlinteractionload
 
 #  Recipient list for mailing the log files (comma-separated)
-MAIL_LOG_PROC=""
+MAIL_LOG_PROC="mgiadmin"
 
 export MAIL_LOADNAME JOBSTREAM MAIL_LOG_PROC
 
